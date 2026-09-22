@@ -1,0 +1,29 @@
+# dsh-qwenwork — QwenWork / Qoder CLI 模型接入 DSH
+#
+# 在 DSH 进程内启动本地 OpenAI 兼容代理（默认 127.0.0.1:8790），
+# 后端调用 Qoder CLI 的 headless 模式（qoder -p -o stream-json）。
+# 与 dsh-workbuddy（8789）端口隔离，两者可同时启用。
+#
+# 安装后还需在 settings.yaml 的 provider 列表里加一段指向本代理的配置，
+# 详见本包 README.md 的「配置 provider」一节。
+#
+# 前置条件：npm install -g @qoder-ai/qodercli
+#
+# 可选配置（写在本文件 config 下即可覆盖默认值）：
+#   - insert:
+#       - id: qwenwork
+#         name: dsh-qwenwork
+#         config:
+#           port: 8790                       # 代理监听端口（与 workbuddy 的 8789 区分）
+#           host: 127.0.0.1                  # 局域网共享可设 0.0.0.0
+#           shareToken: ''                   # 局域网共享时设置；留空=不鉴权
+#           cliPath: ''                      # 自定义 CLI dispatcher 路径；留空=自动探测
+#           configDir: ''                    # QODER_CONFIG_DIR；留空=~/.qoder
+#           requestTimeoutMs: 120000         # 单次模型请求超时
+#           modelsTtlMs: 3600000             # 模型列表缓存时长
+#           debug: false                     # 打开详细日志
+- insert:
+    - id: qwenwork
+      name: dsh-qwenwork
+      config:
+        port: 8790

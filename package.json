@@ -1,0 +1,35 @@
+{
+  "name": "dsh-qwenwork",
+  "version": "0.1.0",
+  "description": "QwenWork / Qoder CLI 模型接入 DeepSeek Harness：DSH 进程内 OpenAI 兼容代理（默认 127.0.0.1:8790），后端为 Qoder CLI headless 模式，支持浏览器设备码授权登录。与 dsh-workbuddy（8789）端口隔离，可并行。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "dsh-bundle",
+    "qwenwork",
+    "qoder",
+    "qodercli",
+    "model-provider"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "cordis.patch.yml"
+    }
+  }
+}
