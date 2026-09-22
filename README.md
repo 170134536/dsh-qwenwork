@@ -210,6 +210,7 @@ Invoke-RestMethod http://127.0.0.1:8790/login/status # 查状态
 | `configDir` | `''` | `QODER_CONFIG_DIR`；留空=`~/.qoder` |
 | `requestTimeoutMs` | `120000` | 单次请求超时 |
 | `modelsTtlMs` | `3600000` | 模型列表缓存时长 |
+| `estimateUsage` | `true` | CLI 不返回 token 数（实测恒为 0），开启后用本地估算填充 `usage`，让 DSH 能显示计量 |
 | `debug` | `false` | 详细日志 |
 
 ---
@@ -239,6 +240,46 @@ Invoke-RestMethod http://127.0.0.1:8790/login/status # 查状态
 
 > **为什么 `node smoke-test.mjs` 测不出来**：在 node.exe 下 `process.execPath` 正常，这个坑不触发。
 > 必须用 **DSH exe** 跑才等价于生产环境 —— 见下方「自测」的 `verify-electron.ps1`。
+
+---
+
+## ⚠️ 思考过程与 token 计量（v0.1.1 修复）
+
+### 思考过程：CLI 有，但默认拿不到
+
+Qoder CLI 的 `stream-json` 会输出 `thinking` 内容块：
+
+```json
+{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"用户问 1+1…"}]}}
+```
+
+但**两个陷阱**：
+
+| 陷阱 | 说明 |
+|---|---|
+| `-o json`（非流式）只吐 **一行 `result`**，完全没有 thinking 事件 | 所以非流式必须也改用 `stream-json` 再本地聚合 |
+| thinking 块类型名是 `thinking`，值在 `.thinking`；正文块是 `text`，值在 `.text` | 早期实现只转发 `text`，思考整段丢失 |
+
+**DSH 侧认的字段名是 `reasoning_content`**（pi-ai 的 `reasoningFields = ["reasoning_content", "reasoning", "reasoning_text"]`，按序取第一个非空）。
+且 pi-ai **硬编码 `stream: true`** —— DSH 永远走流式路径，所以生效的是 SSE delta 里的 `reasoning_content`。
+
+### token 计量：CLI 根本不提供
+
+实测 CLI 无论流式非流式，`usage` 与 `modelUsage` 的 token 字段**恒为 0**：
+
+```json
+"usage":{"input_tokens":0,"output_tokens":0,...}
+"modelUsage":{"qfmodel":{"inputTokens":0,"outputTokens":0,...}}
+```
+
+这是 CLI 本身的限制，不是插件丢字段。因此 `estimateUsage: true`（默认开）会在 CLI 全 0 时用本地粗估填充：
+
+```
+CJK 字符 ≈ 1 token/字，ASCII ≈ 4 字符/token
+```
+
+> ⚠️ **估算值仅供界面计量显示，不是计费依据**。真实计费看 `total_credits`（CLI 会返回）。
+> 若 Qoder CLI 日后返回真实 token 数，插件会**优先用真实值**，估算只在全 0 时兜底。
 
 ## 自测
 

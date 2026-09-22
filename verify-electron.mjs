@@ -51,33 +51,48 @@ try {
   const r = await fetch('http://127.0.0.1:8791/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ stream: false, messages: [{ role: 'user', content: '只回复两个字：你好' }] }),
+    body: JSON.stringify({ stream: false, messages: [{ role: 'user', content: '1+1=? 只回答数字' }] }),
     signal: AbortSignal.timeout(120000),
   })
   const j = await r.json()
-  const c = j?.choices?.[0]?.message?.content || ''
+  const m = j?.choices?.[0]?.message || {}
+  const c = m.content || ''
+  const u = j?.usage || {}
   record('非流式模型调用', r.status === 200 && c.length > 0, `status=${r.status} content=${JSON.stringify(c.slice(0, 40))}${j?.error ? ' err=' + JSON.stringify(j.error).slice(0, 120) : ''}`)
+  // 思考过程：CLI 有 thinking 就必须回传成 reasoning_content，否则 DSH 看不到思考
+  record('非流式 回传 reasoning_content', typeof m.reasoning_content === 'string' && m.reasoning_content.length > 0, `reasoning=${JSON.stringify((m.reasoning_content || '').slice(0, 50))}`)
+  // token 计量：CLI 恒返 0，插件须用估算兜底，否则 DSH 界面永远显示 0
+  record('非流式 回传 token 计量', (u.prompt_tokens || 0) > 0 || (u.completion_tokens || 0) > 0, `usage=${JSON.stringify(u)}`)
 } catch (e) {
   record('非流式模型调用', false, e.message)
 }
 
-// 3) 流式真实调用
+// 3) 流式真实调用（DSH 实际走的路径：pi-ai 硬编码 stream: true）
 try {
   const r = await fetch('http://127.0.0.1:8791/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'Qwen3.8-Flash', stream: true, messages: [{ role: 'user', content: '只回复两个字：好的' }] }),
+    body: JSON.stringify({ model: 'Qwen3.8-Flash', stream: true, messages: [{ role: 'user', content: '2+2=? 只回答数字' }] }),
     signal: AbortSignal.timeout(120000),
   })
   const text = await r.text()
   let asm = ''
+  let asmR = ''
+  let lastUsage = null
   for (const line of text.split('\n')) {
     if (!line.startsWith('data: ') || line.includes('[DONE]')) continue
     try {
-      asm += JSON.parse(line.slice(6))?.choices?.[0]?.delta?.content || ''
+      const c = JSON.parse(line.slice(6))
+      const d = c?.choices?.[0]?.delta || {}
+      if (d.content) asm += d.content
+      if (d.reasoning_content) asmR += d.reasoning_content
+      if (c.usage) lastUsage = c.usage
     } catch {}
   }
   record('流式模型调用', r.status === 200 && asm.length > 0 && text.includes('[DONE]'), `status=${r.status} 拼接=${JSON.stringify(asm.slice(0, 40))} 含[DONE]=${text.includes('[DONE]')}`)
+  // 这是 DSH 真实消费字段（pi-ai 的 delta.reasoning_content）
+  record('流式 reasoning_content delta', asmR.length > 0, `reasoning=${JSON.stringify(asmR.slice(0, 50))}`)
+  record('流式 末帧带 usage', !!lastUsage && (lastUsage.prompt_tokens > 0 || lastUsage.completion_tokens > 0), `usage=${JSON.stringify(lastUsage)}`)
 } catch (e) {
   record('流式模型调用', false, e.message)
 }
